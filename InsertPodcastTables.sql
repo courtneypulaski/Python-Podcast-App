@@ -3,6 +3,9 @@ CREATE SCHEMA PodcastProject;
 CREATE TABLE PodcastProject.Podcast(
 PodcastID int PRIMARY KEY,
 PodcastName varchar(255),
+PodcastDescription varchar(255),
+PodcastLink varchar(255),
+PodcastRSS varchar(255),
 LastUpdated datetime);
 
 CREATE TABLE PodcastProject.PodcastEpisode(

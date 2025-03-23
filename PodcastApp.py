@@ -1,5 +1,6 @@
 import sys
 import feedparser
+import time
 
 def main():
     arguments = sys.argv
@@ -11,44 +12,60 @@ def main():
     if RSSxml['bozo'] == 1:
         print("Please provide a valid RSS feed")
         exit()
-    print(PodcastInfo(RSSxml, RSSurl))
-    EpisodeInfo(RSSxml)
+    PodcastSQLCreation(PodcastInfo(RSSxml, RSSurl), EpisodeInfo(RSSxml))
     GuestInfo()
-    #print(podcast)
-    #for i in range(len(RSSxml["items"])):
-        #if RSSxml["items"][i]["itunes_episodetype"] != 'trailer':
-            #print("NEW ITEM---")
-            #print(RSSxml["items"][i])
 
 def PodcastInfo(RSSxml, url):
     podcastdict = {}
-    podcastdict["PodcastName"] = RSSxml.feed.title
-    podcastdict["PodcastDescription"] = RSSxml.feed.subtitle
-    podcastdict["PodcastLink"] = RSSxml.feed.link
+    fields = [("title","PodcastName"),("summary","PodcastDescription"),("link","PodcastLink")]
+    for value in fields:
+            podcastdict[value[1]] = RSSxml.feed[value[0]] if value[0] in RSSxml.feed else ''
     podcastdict["PodcastRSS"] = url
+    #print(podcastdict)
     return podcastdict
 
 def EpisodeInfo(RSSxml):
     episodes = []
     #print(RSSxml["entries"])
+    fields = [("title","EpisodeName"),("published_parsed","EpisodeDate"),("itunes_episode","EpisodeNumber"),("link","EpisodeLink"),("description","EpisodeSummary"),("itunes_duration","EpisodeLength"),("itunes_episodetype","EpisodeType")]
     for i in range(len(RSSxml["entries"])):
         episodedict = {}
         #print(RSSxml.entries[i])
-        episodedict["EpisodeName"] = RSSxml.entries[i].title
-        episodedict["EpisodeDate"] = RSSxml.entries[i].published
-        if "itunes_episode" in RSSxml.entries[i]:
-            episodedict["EpisodeNumber"] = RSSxml.entries[i].itunes_episode
-        else:
-            episodedict["EpisodeNumber"] = ''
-        if "link" in RSSxml.entries[i]:
-            episodedict["EpisodeLink"] = RSSxml.entries[i].link
-        else:
-            episodedict["EpisodeLink"] = ''
-        episodedict["EpisodeSummary"] = RSSxml.entries[i].description
-        episodedict["EpisodeLength"] = RSSxml.entries[i].itunes_duration
-        episodedict["EpisodeType"] = RSSxml.entries[i].itunes_episodetype
+        for value in fields:
+            episodedict[value[1]] = RSSxml.entries[i][value[0]] if value[0] in RSSxml.entries[i] else ''
         episodes.append(episodedict)
+        episodedict["EpisodeDate"] = time.strftime('%m-%d-%Y',episodedict["EpisodeDate"])
     return episodes
+
+def PodcastSQLCreation(podcast, episodes):
+    podcastnbr = 1
+    #podcast columns
+    columns = ["PodcastName","PodcastDescription","PodcastLink","PodcastRSS"]
+    podcastSQL = f"INSERT INTO podcastproject.podcast\nVALUES ({podcastnbr}, "
+    for col in columns:
+        podcast[col] = podcast[col].replace("'","''")
+        podcastSQL = podcastSQL + "'" + str(podcast[col][:255] + "', ")
+    podcastSQL = podcastSQL + "CURRENT_TIMESTAMP());"
+    print(podcastSQL)
+    columns = ["EpisodeName","EpisodeDate","EpisodeLink","EpisodeSummary","EpisodeLength"]
+    episodenbr = 1
+    episodeSQL = ""
+    for ep in reversed(episodes):
+        if episodenbr != 1:
+            episodeSQL = episodeSQL + "\n\n"
+        episodeSQL = episodeSQL + f"INSERT INTO podcastproject.podcastepisode\nVALUES ({podcastnbr}, {episodenbr}, "
+        for col in columns:
+            ep[col] = ep[col].replace("'","''")
+            ep[col] = ep[col].replace("\n"," ")
+            if col == "EpisodeDate":
+                episodeSQL = episodeSQL + 'STR_TO_DATE("' + ep["EpisodeDate"] + '", "%m-%d-%Y"), '
+            else:
+                episodeSQL = episodeSQL + "'" + str(ep[col][:255]) + "', "
+        episodeSQL = episodeSQL + "CURRENT_TIMESTAMP());"
+        episodenbr += 1
+    print(episodeSQL)
+    #print(episodes)
+    return
 
 def GuestInfo():
     guestlist = ['Abby Cox',

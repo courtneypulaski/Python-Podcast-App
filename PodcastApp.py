@@ -1,19 +1,22 @@
-import sys
 import feedparser
 import time
 
 def main():
-    arguments = sys.argv
-    if len(arguments) != 2:
-        print("Please provide a single RSS feed only.")
-        exit()
-    RSSurl = arguments[1]
-    RSSxml = feedparser.parse(RSSurl)
-    if RSSxml['bozo'] == 1:
-        print("Please provide a valid RSS feed")
-        exit()
-    PodcastSQLCreation(PodcastInfo(RSSxml, RSSurl), EpisodeInfo(RSSxml))
-    GuestInfo()
+    RSSurl = ''
+    podcastnbr = 1
+    while RSSurl == '':
+        RSSurl = input('Enter an RSSurl or type quit (q): ')
+        if RSSurl.lower() == 'quit' or RSSurl.lower() == 'q':
+            exit()
+        RSSxml = feedparser.parse(RSSurl)
+        if RSSxml['bozo'] == 1 or RSSurl == '':
+            print("Please provide a valid RSS feed")
+            RSSurl = ''
+        else:
+            PodcastSQLCreation(PodcastInfo(RSSxml, RSSurl), podcastnbr, EpisodeInfo(RSSxml))
+            GuestInfo()
+            RSSurl = ''
+        podcastnbr += 1
 
 def PodcastInfo(RSSxml, url):
     podcastdict = {}
@@ -37,11 +40,11 @@ def EpisodeInfo(RSSxml):
         episodedict["EpisodeDate"] = time.strftime('%m-%d-%Y',episodedict["EpisodeDate"])
     return episodes
 
-def PodcastSQLCreation(podcast, episodes):
-    podcastnbr = 1
+def PodcastSQLCreation(podcast, podnbr, episodes):
+
     #podcast columns
     columns = ["PodcastName","PodcastDescription","PodcastLink","PodcastRSS"]
-    podcastSQL = f"INSERT INTO podcastproject.podcast\nVALUES ({podcastnbr}, "
+    podcastSQL = f"INSERT INTO podcastproject.podcast\nVALUES ({podnbr}, "
     for col in columns:
         podcast[col] = podcast[col].replace("'","''")
         podcastSQL = podcastSQL + "'" + str(podcast[col][:255] + "', ")
@@ -53,7 +56,7 @@ def PodcastSQLCreation(podcast, episodes):
     for ep in reversed(episodes):
         if episodenbr != 1:
             episodeSQL = episodeSQL + "\n\n"
-        episodeSQL = episodeSQL + f"INSERT INTO podcastproject.podcastepisode\nVALUES ({podcastnbr}, {episodenbr}, "
+        episodeSQL = episodeSQL + f"INSERT INTO podcastproject.podcastepisode\nVALUES ({podnbr}, {episodenbr}, "
         for col in columns:
             ep[col] = ep[col].replace("'","''")
             ep[col] = ep[col].replace("\n"," ")
